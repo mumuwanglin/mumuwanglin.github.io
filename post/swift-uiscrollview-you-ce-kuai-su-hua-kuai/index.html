@@ -1,0 +1,349 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Swift UIScrollView 右侧快速滑块 | Gridea</title>
+<link rel="shortcut icon" href="https://mumuwanglin.github.io/favicon.ico?v=1617087153313">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://mumuwanglin.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Swift UIScrollView 右侧快速滑块 | Gridea - Atom Feed" href="https://mumuwanglin.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="废话少说，先上链接 GitHub
+背景
+系统自带的滚动导航条有点不符合我们的预期要求，所以写了自定义的右侧快速滑块。
+实现方案
+自定义UIView，给View添加的UIButton，添加手势UIPanGestureRecognizer，计算..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://mumuwanglin.github.io">
+  <img class="avatar" src="https://mumuwanglin.github.io/images/avatar.png?v=1617087153313" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Swift UIScrollView 右侧快速滑块
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-10-09
+              </span>
+              <span>
+                4 min read
+              </span>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>废话少说，先上链接 <a href="https://github.com/mumuwanglin/YYRightScrollBar">GitHub</a></p>
+<h2 id="背景">背景</h2>
+<p>系统自带的滚动导航条有点不符合我们的预期要求，所以写了自定义的右侧快速滑块。</p>
+<h2 id="实现方案">实现方案</h2>
+<p>自定义<code>UIView</code>，给View添加的<code>UIButton</code>，添加手势<code>UIPanGestureRecognizer</code>，计算<code>UIButton</code>在<code>View</code>中间的滚动比例，设置给<code>ScrollView</code>。<br>
+<code>ScrollView</code> 开始滚动，计算滚动比例，设置给自定义的<code>View</code></p>
+<pre><code>//
+//  YYScrollBar.swift
+//  YYRightScrollBar
+//
+//  Created by mumu on 2020/9/16.
+//  Copyright © 2020 mumu. All rights reserved.
+//
+
+import UIKit
+
+protocol YYScrollBarDelegate: NSObjectProtocol {
+    func scrollBarDidScroll(scrollBar: YYScrollBar, rollingRatio: CGFloat)
+}
+
+class YYScrollBar: UIView {
+    // 滑块滚动的比例
+    var scrollViewRotio: CGFloat? {
+        didSet {
+            showingFastRollingFlag = true
+            if isShowFastRollingBtn() {
+                followScrollView()
+            } else {
+                followScrollView()
+                showFastRollingBtnWithAnimation()
+            }
+        }
+    }
+    
+    // 滚动代理
+    weak var delegate: YYScrollBarDelegate?
+    // 是否展示滑块
+    var showingFastRollingFlag = false
+    
+    // 滑块的宽度
+    private var fastRollingWidth: CGFloat = 26
+    // 滑块的高度
+    private var fastRollingHeight: CGFloat = 42
+    private var lastDragPoint: CGFloat = 0
+    private var autoHidingFastRollingBtnFlag = true
+    
+    // 自定义滑块
+    lazy var fastRollingButton: UIButton = {
+        let tmp = UIButton(type: .custom)
+        tmp.frame = CGRect.init(x: 0, y: 0, width: 26, height: 42)
+        tmp.setImage(UIImage.init(named: &quot;read_catalog_white_slider&quot;), for: .normal)
+        tmp.adjustsImageWhenHighlighted = false
+        tmp.isHidden = false
+        let panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePan(panGesture:)))
+        tmp.addGestureRecognizer(panGestureRecognizer)
+        return tmp
+    }()
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupView()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError(&quot;init(coder:) has not been implemented&quot;)
+    }
+    
+    private func setupView() {
+        addSubview(fastRollingButton)
+    }
+    
+    // 是否正在展示滑块
+    private func isShowFastRollingBtn() -&gt; Bool {
+        return fastRollingButton.frame.origin.x == 0
+    }
+    
+    // 更新滑块的位置
+    private func updateFasetRollingBtnFrame() {
+        self.fastRollingButton.frame = CGRect(x: 0, y: self.fastRollingButton.frame.origin.y, width: self.fastRollingWidth, height: self.fastRollingHeight)
+    }
+    
+    // 显示滑块
+    private func showFastRollingBtnWithAnimation() {
+        UIView.animate(withDuration: 0.2, animations: {
+            self.updateFasetRollingBtnFrame()
+        })
+    }
+    
+    // 隐藏滑块
+    private func hideFastRollingBtnWithAnimation() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: {
+            if self.showingFastRollingFlag {
+               return
+            }
+            UIView.animate(withDuration: 0.2, animations: {
+                if self.showingFastRollingFlag {
+                   return
+                }
+                let tmpX = self.fastRollingButton.frame.origin.x
+                self.fastRollingButton.frame = CGRect(x: tmpX + self.fastRollingWidth, y: self.fastRollingButton.frame.origin.y, width: self.fastRollingWidth, height: self.fastRollingHeight)
+            })
+        })
+    }
+    
+    // 滚动scrollview 调整快速滑块位置
+    private func followScrollView() {
+        let rotio = scrollViewRotio ?? 0
+        var frame = self.fastRollingButton.frame
+        frame.origin.y = (self.frame.size.height - fastRollingHeight) * rotio
+        fastRollingButton.frame = frame
+    }
+    
+    // 跟随手势事件
+    @objc private func handlePan(panGesture: UIPanGestureRecognizer) {
+        if panGesture.state == .ended {
+            lastDragPoint = 0
+            checkHideFastRollingBtn()
+        } else {
+            let pointY: CGFloat = panGesture.translation(in: panGesture.view).y
+            let offset: CGFloat = pointY - self.lastDragPoint
+            lastDragPoint = pointY
+            
+            var frame = self.fastRollingButton.frame
+            let maxY = self.frame.size.height - fastRollingHeight
+            
+            frame.origin.y = frame.origin.y &gt; maxY ? maxY : frame.origin.y + offset
+            frame.origin.y = frame.origin.y &lt;= 0 ? 0 : frame.origin.y
+            frame.origin.y = frame.origin.y &gt;= maxY ? maxY : frame.origin.y
+            
+            self.fastRollingButton.frame = frame
+            
+            let ratio = frame.origin.y / (self.bounds.size.height - fastRollingHeight)
+            delegate?.scrollBarDidScroll(scrollBar: self, rollingRatio: ratio)
+        }
+    }
+    
+    // 隐藏滑块
+    func checkHideFastRollingBtn() {
+        if isShowFastRollingBtn() {
+            showingFastRollingFlag = false
+            hideFastRollingBtnWithAnimation()
+        }
+    }
+    
+    // Scroll滚动，计算滑块位置
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        var scrollViewRotio = scrollView.contentOffset.y/(scrollView.contentSize.height - scrollView.frame.size.height)
+        scrollViewRotio = scrollViewRotio &gt;= 1 ? 1 : scrollViewRotio
+        scrollViewRotio = scrollViewRotio &lt;= 0 ? 0 : scrollViewRotio
+        self.scrollViewRotio = scrollViewRotio
+    }
+}
+
+</code></pre>
+<pre><code>// 使用方法
+
+extension ViewController: YYScrollBarDelegate {
+    func scrollBarDidScroll(scrollBar: YYScrollBar, rollingRatio: CGFloat) {
+        let offsetY = (tableView.contentSize.height - tableView.frame.size.height) * rollingRatio
+        tableView.contentOffset = CGPoint(x: 0, y: offsetY)
+    }
+}
+
+extension ViewController: UIScrollViewDelegate {
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        scrollBar.scrollViewDidScroll(scrollView)
+    }
+        
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        scrollBar.checkHideFastRollingBtn()
+    }
+}
+</code></pre>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#%E8%83%8C%E6%99%AF">背景</a></li>
+<li><a href="#%E5%AE%9E%E7%8E%B0%E6%96%B9%E6%A1%88">实现方案</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://mumuwanglin.github.io/post/fang-wen-swift-shu-zu-shi-swift_isuniquelyreferenced_nonnull_native-zhong-de-exc_bad_access/">
+              <h3 class="post-title">
+                访问swift数组时，swift_isUniquelyReferenced_nonNull_native中的EXC_BAD_ACCESS
+              </h3>
+            </a>
+          </div>
+        
+
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://mumuwanglin.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

@@ -1,0 +1,276 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>iOS 一键砸壳 | Gridea</title>
+<link rel="shortcut icon" href="https://mumuwanglin.github.io/favicon.ico?v=1617087153313">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://mumuwanglin.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="iOS 一键砸壳 | Gridea - Atom Feed" href="https://mumuwanglin.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="ios端配置：
+
+打开cydia 添加源： https://build.frida.re
+打开刚刚添加的源 安装 frida
+安装完成！检查是否工作可以可在手机终端运行 frida-ps -U 查看
+
+mac端配置：
+
+安装Homebrew..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://mumuwanglin.github.io">
+  <img class="avatar" src="https://mumuwanglin.github.io/images/avatar.png?v=1617087153313" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              iOS 一键砸壳
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-03-30
+              </span>
+              <span>
+                3 min read
+              </span>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h2 id="ios端配置">ios端配置：</h2>
+<ul>
+<li>打开cydia 添加源： https://build.frida.re</li>
+<li>打开刚刚添加的源 安装 frida</li>
+<li>安装完成！检查是否工作可以可在手机终端运行 frida-ps -U 查看</li>
+</ul>
+<h2 id="mac端配置">mac端配置：</h2>
+<ul>
+<li>安装Homebrew</li>
+<li>安装python: <code>brew install python</code></li>
+<li>安装wget: <code>brew install wget</code></li>
+<li>安装pip:
+<ul>
+<li><code>wget https://bootstrap.pypa.io/get-pip.py</code></li>
+<li><code>sudo python get-pip.py</code></li>
+</ul>
+</li>
+<li>安装usbmuxd：<code>brew install usbmuxd</code></li>
+<li>清理残留: <code>rm ~/get-pip.py</code><br>
+(Ps: 使用brew install xxx 如果一直卡在 Updating Homebrew… 可以control + z 结束当前进程 再新开一个终端安装 此时可以跳过更新)</li>
+</ul>
+<h4 id="安装frida-for-mac">安装frida for mac：</h4>
+<ul>
+<li>
+<p>终端执行：<br>
+<code>sudo pip install frida</code><br>
+假如报以下错误：<br>
+Uninstalling a distutils installed project (six) has been deprecated and will be removed in a future version. This is due to the fact that uninstalling a distutils project will only partially uninstall the project.</p>
+<ul>
+<li>使用以下命令安装：<br>
+<code>sudo pip install frida –upgrade –ignore-installed six</code><br>
+配置frida-ios-dump环境：</li>
+</ul>
+</li>
+<li>
+<p>从Github下载工程：<br>
+<code>sudo mkdir /opt/dump &amp;&amp; cd /opt/dump &amp;&amp; sudo git clone https://github.com/AloneMonkey/frida-ios-dump</code></p>
+</li>
+<li>
+<p>安装依赖：<br>
+<code>sudo pip install -r /opt/dump/frida-ios-dump/requirements.txt --upgrade</code></p>
+</li>
+<li>
+<p>修改dump.py参数：<br>
+<code>vim /opt/dump/frida-ios-dump/dump.py</code><br>
+找到如下几行(32~35)：<br>
+User = 'root'<br>
+Password = 'alpine'<br>
+Host = 'localhost'<br>
+Port = 2222<br>
+按需修改 如把Password改成自己的</p>
+</li>
+</ul>
+<p>ps:如果不习惯vim 用访达打开/opt/dump/frida-ios-dump/dump.py手动编辑。</p>
+<h5 id="设置别名">设置别名：</h5>
+<p>在终端输入：<br>
+<code>vim ~/.bash_profile</code></p>
+<p>*在末尾新增下面一段：<br>
+<code>alias dump.py=&quot;/opt/dump/frida-ios-dump/dump.py&quot;</code></p>
+<h5 id="注意以上的optdump-可以按需更改">注意：以上的<code>/opt/dump</code> 可以按需更改 。</h5>
+<ul>
+<li>
+<p>使别名生效：<br>
+<code>source ~/.bash_profile</code></p>
+</li>
+<li>
+<p>打开终端 设置端口转发:<br>
+<code>iproxy 2222 22</code></p>
+</li>
+<li>
+<p>command + n 新建终端执行一键砸壳(QQ):<br>
+<code>dump.py QQ</code><br>
+好了 现在在终端ls 查看刚刚的成果吧~</p>
+</li>
+</ul>
+<h5 id="查看是否砸壳成功">查看是否砸壳成功</h5>
+<ul>
+<li>解压IPA文件，找到Maco文件</li>
+<li>终端下执行 <code>otool -l Keep | grep cry</code></li>
+</ul>
+<pre><code>cryptoff 16384
+cryptsize 44646400
+cryptid 0
+</code></pre>
+<p>如果 cryptid 等于0，说明砸壳成功</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#ios%E7%AB%AF%E9%85%8D%E7%BD%AE">ios端配置：</a></li>
+<li><a href="#mac%E7%AB%AF%E9%85%8D%E7%BD%AE">mac端配置：</a><br>
+*
+<ul>
+<li><a href="#%E5%AE%89%E8%A3%85frida-for-mac">安装frida for mac：</a>
+<ul>
+<li><a href="#%E8%AE%BE%E7%BD%AE%E5%88%AB%E5%90%8D">设置别名：</a></li>
+<li><a href="#%E6%B3%A8%E6%84%8F%E4%BB%A5%E4%B8%8A%E7%9A%84optdump-%E5%8F%AF%E4%BB%A5%E6%8C%89%E9%9C%80%E6%9B%B4%E6%94%B9">注意：以上的<code>/opt/dump</code> 可以按需更改 。</a></li>
+<li><a href="#%E6%9F%A5%E7%9C%8B%E6%98%AF%E5%90%A6%E7%A0%B8%E5%A3%B3%E6%88%90%E5%8A%9F">查看是否砸壳成功</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://mumuwanglin.github.io/post/hello-gridea/">
+              <h3 class="post-title">
+                Hello Gridea
+              </h3>
+            </a>
+          </div>
+        
+
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://mumuwanglin.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

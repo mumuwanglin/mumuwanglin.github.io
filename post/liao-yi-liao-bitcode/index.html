@@ -1,0 +1,199 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>聊一聊 Bitcode | Gridea</title>
+<link rel="shortcut icon" href="https://mumuwanglin.github.io/favicon.ico?v=1617087153313">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://mumuwanglin.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="聊一聊 Bitcode | Gridea - Atom Feed" href="https://mumuwanglin.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="2015 年起，苹果允许你可以选择是否在你的 iOS 应用或 SDK 上是否包含 Bitcode。为了消除大家对 Bitcode 的疑惑，我们来讨论以下几点：
+什么是 Bitcode？
+想知道什么是 Bitcode，我们先来回顾下编译过程。..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://mumuwanglin.github.io">
+  <img class="avatar" src="https://mumuwanglin.github.io/images/avatar.png?v=1617087153313" alt="">
+  </a>
+  <h1 class="site-title">
+    Gridea
+  </h1>
+  <p class="site-description">
+    温故而知新
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              聊一聊 Bitcode
+            </h2>
+            <div class="post-info">
+              <span>
+                2020-09-05
+              </span>
+              <span>
+                4 min read
+              </span>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>2015 年起，苹果允许你可以选择是否在你的 iOS 应用或 SDK 上是否包含 Bitcode。为了消除大家对 Bitcode 的疑惑，我们来讨论以下几点：</p>
+<h2 id="什么是-bitcode">什么是 Bitcode？</h2>
+<p>想知道什么是 Bitcode，我们先来回顾下编译过程。编译器会在编译时将可读代码转为计算机或手机可执行的机器码。 编译过程有下面三个不同的步骤：</p>
+<ol>
+<li>编译器前端将源代码转换成某种中间产物 Intermediate representation (IR)；</li>
+<li>优化器执行一个优化队列来对中间产物 (IR) 进行优化，使它变得更小更高效：移除冗余代码、对结果进行预先计算、内联代码等等。编译过程中的这个关键步骤使用的就是中间产物 (IR)，而不是源代码或机器码，因为它更容易的被优化器来解释（这句话我的意思可能表达的不太对，欢迎指正）；</li>
+<li>编译器后端会根据优化后的中间产物生成机器码。</li>
+</ol>
+<p>所以当我们聊到 Bitcode，实际上是在说这种由 Clang 编译器使用的中间产物（或者更准确的来说，是这种编译器的中间产物在磁盘中的表现形式）。Clang 广泛使用在基于 LLVM 框架的 C/C++/Objective-C 语言家族的编译器上，它同样被苹果在 Xcode 中用来编译 iOS 和 macOS 应用。所以 Bitcode 并不是什么新奇的东西，因为它一直存在于 LLVM 框架的编译器中。</p>
+<h2 id="构建你的-bitcode-enable-项目">构建你的 Bitcode-enable 项目：</h2>
+<p>2015 年，苹果添加了是否在你的应用编译过程中嵌入 Bitcode 的选项。当禁用这个选项的时候，编译器只会生成包含机器码的可执行文件。<br>
+<img src="https://mumuwanglin.github.io/post-images/1617085679372.png" alt="" loading="lazy"><br>
+但如果选中了这个选项，Bitcode 会连同机器码一起被包含在可执行文件中。<br>
+<img src="https://mumuwanglin.github.io/post-images/1617085692143.png" alt="" loading="lazy"><br>
+当执行嵌入了 Bitcode 的应用，Bitcode 会被忽略，应用程序会以和运行普通可执行文件相同的方式来运行机器码。</p>
+<h2 id="苹果在嵌入-bitcode-的时候做了什么">苹果在嵌入 Bitcode 的时候做了什么？</h2>
+<p>为什么苹果会提供嵌入 Bitcode 的选项呢？答案是显而易见的。将 Bitcode 嵌入进可执行文件，苹果能在不通过开发者交互的情况下重编译应用。优点如下：</p>
+<ol>
+<li>苹果在不断加强 Clang 编译器的优化，以便进一步提高 iOS 应用的性能。通过嵌入 Bitcode，苹果能使用最新的、升级过的编译器重编译应用。这将简化开发者更新他们的开发环境、重编译再到上传应用到 App Store 的这这一套流程。</li>
+<li>嵌入 Bitcode，开发者能自动迁移他们的 App 到最新的设备上。嵌入 Bitcode 使苹果能够重新编译现有的应用程序，并使它们与新设备的芯片组兼容。</li>
+</ol>
+<h2 id="嵌入-bitcode-安全么是否有安全隐患">嵌入 Bitcode 安全么？是否有安全隐患？</h2>
+<p>嵌入 Bitcode 过程中的关键信息永远不会被发送到用户的手机上。苹果将 Bitcode 储存在其远端服务器上，并在需要的时候才会去使用它。换句话说，只用苹果能访问到该 Bitcode，用户不会体验到是否嵌入 Bitcode 前后 App 的区别，而且 Bitcode 从来没有离开过苹果的服务器。这是极其安全的。</p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li>
+<ul>
+<li><a href="#%E4%BB%80%E4%B9%88%E6%98%AF-bitcode">什么是 Bitcode？</a></li>
+<li><a href="#%E6%9E%84%E5%BB%BA%E4%BD%A0%E7%9A%84-bitcode-enable-%E9%A1%B9%E7%9B%AE">构建你的 Bitcode-enable 项目：</a></li>
+<li><a href="#%E8%8B%B9%E6%9E%9C%E5%9C%A8%E5%B5%8C%E5%85%A5-bitcode-%E7%9A%84%E6%97%B6%E5%80%99%E5%81%9A%E4%BA%86%E4%BB%80%E4%B9%88">苹果在嵌入 Bitcode 的时候做了什么？</a></li>
+<li><a href="#%E5%B5%8C%E5%85%A5-bitcode-%E5%AE%89%E5%85%A8%E4%B9%88%E6%98%AF%E5%90%A6%E6%9C%89%E5%AE%89%E5%85%A8%E9%9A%90%E6%82%A3">嵌入 Bitcode 安全么？是否有安全隐患？</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://mumuwanglin.github.io/post/swiftji-lu-uilabel-de-kuo-zhan-ji-suan-label-de-shi-ji-gao-du-yi-ji-xing-shu/">
+              <h3 class="post-title">
+                Swift：记录UILabel的扩展，计算label的实际高度以及行数
+              </h3>
+            </a>
+          </div>
+        
+
+        
+
+        <div class="site-footer">
+  Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a>
+  <a class="rss" href="https://mumuwanglin.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>
