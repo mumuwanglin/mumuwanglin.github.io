@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>Swift 路由 QMRouter | 木木的个人小站</title>
+<meta name="description" content="每天进步一点点">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="shortcut icon" href="https://mumuwanglin.github.io/favicon.ico?v=1658910586925">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/papercss@1.6.1/dist/paper.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+<link rel="stylesheet" href="https://mumuwanglin.github.io/styles/main.css">
+
+
+  
+    <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+  
+
+  
+
+<script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+
+
+  </head>
+  <body>
+  
+    <nav class="navbar border fixed split-nav">
+  <div class="nav-brand">
+    <h3><a href="https://mumuwanglin.github.io">木木的个人小站</a></h3>
+  </div>
+  <div class="collapsible">
+    <input id="collapsible1" type="checkbox" name="collapsible1">
+    <button>
+      <label for="collapsible1">
+        <div class="bar1"></div>
+        <div class="bar2"></div>
+        <div class="bar3"></div>
+      </label>
+    </button>
+    <div class="collapsible-body">
+      <ul class="inline">
+        
+          <li>
+            
+              <a href="/" class="menu">
+                首页
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/archives" class="menu">
+                归档
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/tags" class="menu">
+                标签
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/post/about" class="menu">
+                关于
+              </a>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div id="top" class="row site">
+      <div class="sm-12 md-8 col">
+        <div class="paper">
+          <article class="article">
+            <h1>Swift 路由 QMRouter</h1>
+            <p class="article-meta">
+              2020-12-11
+              
+                <a href="https://mumuwanglin.github.io/tag/igh_dS0bb/" class="badge secondary">
+                  iOS
+                </a>
+              
+                <a href="https://mumuwanglin.github.io/tag/dPSLjLDmT/" class="badge warning">
+                  Swift
+                </a>
+              
+            </p>
+            
+            <div class="post-content">
+              <h2 id="七猫ios组件化架构设计实践">七猫iOS组件化架构设计实践</h2>
+<p>一、Service 和 Module 的注册（负责跨模块数据交互）</p>
+<ol>
+<li>定义夸模块数据交互的协议</li>
+</ol>
+<p>在Mediator中定义 ModuleService(继承自QMModuleProtocol) 协议</p>
+<ul>
+<li>定义路由名称</li>
+<li>定义此协议需要暴露出的方法</li>
+</ul>
+<pre><code>// 所有商品的路由
+public let kRouteAllGoodsList: String = &quot;freereader://goods/all_goods_list&quot;
+// 商品详情的路由
+public let kRouteGoodsDetail: String = &quot;qmrouter://goods/detail&quot;
+// 跳转商品详情需要传递的参数
+public let kRouteGoodsDetailParamId: String = &quot;id&quot;
+
+// 商品类的协议,方便参数的传递
+public protocol GoodsProtocol {
+    var goodsId: String { get set }
+    var name: String { get set }
+    var price: Float { get set }
+    var inventory: Int { get set }
+}
+
+// 商品模块的服务类
+public protocol GoodsModuleService: QMModuleProtocol {
+    func totalInventory() -&gt; Int
+    func popularGoodsList() -&gt; Array&lt;GoodsProtocol&gt;
+    func allGoodsList() -&gt; Array&lt;GoodsProtocol&gt;
+    func goodsById(goodsId: String) -&gt; GoodsProtocol
+}
+</code></pre>
+<ol start="2">
+<li>在 Module 实现定义的 ModuleService 协议 和 QMSharedInstanceProtocol 协议</li>
+</ol>
+<ul>
+<li>实现单例方法</li>
+<li>设置初始化优先级(可选)</li>
+<li>设置是否异步初始化(可选)</li>
+<li>设置 setup 初始化路由(可选)</li>
+<li>实现自定义协议的方法</li>
+</ul>
+<pre><code>final public class GoodsModule: GoodsModuleService,QMSharedInstanceProtocol {
+  
+    public static var sharedInstance: GoodsModule = GoodsModule()
+  
+    public func setup() {
+        QMRouter.shared.bind(kRouteGoodsDetail) { (params) -&gt; Void in
+            let detailVC = GoodsDetailsViewController()
+            detailVC.goodsId = params[kRouteGoodsDetailParamId] as? String
+          
+            // 注册完成后的一些操作
+            QMRouter.shared.complete(params, result: &quot;我是成功回调的参数&quot;)
+          
+            UIViewController.getCurrentVC()?.navigationController?.pushViewController(detailVC, animated: true)
+        }
+      
+        QMRouter.shared.bind(kRouteAllGoodsList) { (params) -&gt; Void in
+            let vc = GoodsListViewController()
+            UIViewController.getCurrentVC()?.navigationController?.pushViewController(vc, animated: true)
+        }
+    }
+  
+    public func totalInventory() -&gt;Int {
+        ```
+    }
+  
+    public func popularGoodsList() -&gt; Array&lt;GoodsProtocol&gt; {
+        ```
+    }
+  
+    public func allGoodsList() -&gt; Array&lt;GoodsProtocol&gt; {
+        ```
+    }
+
+    public func goodsById(goodsId: String) -&gt; GoodsProtocol {
+        ```
+    }
+
+
+}
+</code></pre>
+<ol start="3">
+<li>注册服务</li>
+</ol>
+<pre><code>QMRouter.register(GoodsModuleService.self, module: GoodsModule.sharedInstance)
+</code></pre>
+<ol start="4">
+<li>获取服务</li>
+</ol>
+<pre><code>let goodsModule = QMRouter.module(for: GoodsModuleService.self)
+// 获取所有的商品
+goodsModule?.allGoodsList()
+</code></pre>
+<p>二、路由的注册于获取（负责路由的跳转）</p>
+<ol>
+<li>获取注册的路由</li>
+</ol>
+<p>在定义的Module 的 setup 方法</p>
+<pre><code>final public class GoodsModule: GoodsModuleService,QMSharedInstanceProtocol {
+  
+    public static var sharedInstance: GoodsModule = GoodsModule()
+  
+    public func setup() {
+        QMRouter.shared.bind(kRouteGoodsDetail) { (params) -&gt; Void in
+            let detailVC = GoodsDetailsViewController()
+            detailVC.goodsId = params[kRouteGoodsDetailParamId] as? String
+  
+            // 注册完成后的一些操作
+            QMRouter.shared.complete(params, result: &quot;我是成功回调的参数&quot;)
+  
+            UIViewController.getCurrentVC()?.navigationController?.pushViewController(detailVC, animated: true)
+        }
+  
+        QMRouter.shared.bind(kRouteAllGoodsList) { (params) -&gt; Void in
+            let vc = GoodsListViewController()
+            UIViewController.getCurrentVC()?.navigationController?.pushViewController(vc, animated: true)
+        }
+    }
+}
+</code></pre>
+<ol start="2">
+<li>获取注册的服务</li>
+</ol>
+<pre><code>let routeURL = kRouteGoodsDetail
+
+let vc = QMRouter.handle(routeURL, complexParams: [kRouteGoodsDetailParamId: &quot;\(String(describing: goods?.goodsId ?? &quot;&quot;))&quot;]) { (params) in
+
+}
+</code></pre>
+
+            </div>
+          </article>
+        </div>
+        <div class="paper" data-aos="fade-in">
+          
+            <div class="next-post">
+              <div class="next">
+                下一篇
+              </div>
+              <a href="https://mumuwanglin.github.io/post/swift-uiscrollview-you-ce-kuai-su-hua-kuai/">
+                <h3 class="post-title">
+                  Swift UIScrollView 右侧快速滑块
+                </h3>
+              </a>
+            </div>
+          
+        </div>
+        
+          
+            <div class="paper" data-aos="fade-in">
+              <div id="gitalk-container"></div>
+            </div>
+          
+
+          
+        
+      </div>
+
+      <div class="sm-12 md-4 col sidebar">
+  <div class="paper info-container">
+    <img src="https://mumuwanglin.github.io/images/avatar.png?v=1658910586925" class="no-responsive avatar">
+    <div class="text-muted">每天进步一点点</div>
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      最新文章
+    </div>
+    <div class="row">
+      <ul>
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/qi-mao-ios-qi-dong-shi-jian-you-hua/">七猫 iOS 启动时间优化</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/iOS开源二进制使用插件(使用教程)/">iOS开源二进制使用插件(使用教程)</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-lu-you-qmrouter/">Swift 路由 QMRouter</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-uiscrollview-you-ce-kuai-su-hua-kuai/">Swift UIScrollView 右侧快速滑块</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/fang-wen-swift-shu-zu-shi-swift_isuniquelyreferenced_nonnull_native-zhong-de-exc_bad_access/">访问swift数组时，swift_isUniquelyReferenced_nonNull_native中的EXC_BAD_ACCESS</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/liao-yi-liao-bitcode/">聊一聊 Bitcode</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swiftji-lu-uilabel-de-kuo-zhan-ji-suan-label-de-shi-ji-gao-du-yi-ji-xing-shu/">Swift：记录UILabel的扩展，计算label的实际高度以及行数</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-ru-he-you-ya-de-pan-duan-nei-cun-xie-lou/">iOS 如何优雅的判断内存泄漏</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/wkwebview-shi-yong-gong-lue/">WKWebview使用攻略</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-zi-ding-yi-present-dong-hua-swift/">iOS 自定义present动画（Swift）</a>
+            </li>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      </ul>
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      标签列表
+    </div>
+    <div class="row">
+      
+        <a href="https://mumuwanglin.github.io/tag/igh_dS0bb/" class="badge secondary">
+          iOS
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/dPSLjLDmT/" class="badge secondary">
+          Swift
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/6dEErRCiC/" class="badge secondary">
+          Gridea
+        </a>
+      
+    </div>
+  </div>
+  <div class="paper">
+    Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://mumuwanglin.github.io/atom.xml" target="_blank">RSS</a>
+  </div>
+</div>
+
+
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+
+<script type="application/javascript">
+
+AOS.init();
+
+hljs.initHighlightingOnLoad()
+
+</script>
+
+
+
+  
+    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+    <script>
+
+      var gitalk = new Gitalk({
+        clientID: '5349e8261382c7ffc4fa',
+        clientSecret: '3baf5e7c42196b8cc552884e1e029b5b894f7a06',
+        repo: 'mumuwanglin.github.io',
+        owner: 'mumuwanglin',
+        admin: ['mumuwanglin'],
+        id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+        distractionFreeMode: false  // Facebook-like distraction free mode
+      })
+
+      gitalk.render('gitalk-container')
+
+    </script>
+  
+
+  
+
+
+
+
+  </body>
+</html>

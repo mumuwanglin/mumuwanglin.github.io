@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>iOS 如何优雅的判断内存泄漏 | 木木的个人小站</title>
+<meta name="description" content="每天进步一点点">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="shortcut icon" href="https://mumuwanglin.github.io/favicon.ico?v=1658910586925">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/papercss@1.6.1/dist/paper.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+<link rel="stylesheet" href="https://mumuwanglin.github.io/styles/main.css">
+
+
+  
+    <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+  
+
+  
+
+<script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+
+
+  </head>
+  <body>
+  
+    <nav class="navbar border fixed split-nav">
+  <div class="nav-brand">
+    <h3><a href="https://mumuwanglin.github.io">木木的个人小站</a></h3>
+  </div>
+  <div class="collapsible">
+    <input id="collapsible1" type="checkbox" name="collapsible1">
+    <button>
+      <label for="collapsible1">
+        <div class="bar1"></div>
+        <div class="bar2"></div>
+        <div class="bar3"></div>
+      </label>
+    </button>
+    <div class="collapsible-body">
+      <ul class="inline">
+        
+          <li>
+            
+              <a href="/" class="menu">
+                首页
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/archives" class="menu">
+                归档
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/tags" class="menu">
+                标签
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/post/about" class="menu">
+                关于
+              </a>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div id="top" class="row site">
+      <div class="sm-12 md-8 col">
+        <div class="paper">
+          <article class="article">
+            <h1>iOS 如何优雅的判断内存泄漏</h1>
+            <p class="article-meta">
+              2020-06-22
+              
+                <a href="https://mumuwanglin.github.io/tag/igh_dS0bb/" class="badge success">
+                  iOS
+                </a>
+              
+                <a href="https://mumuwanglin.github.io/tag/dPSLjLDmT/" class="badge warning">
+                  Swift
+                </a>
+              
+            </p>
+            
+            <div class="post-content">
+              <p>视图控制器是通常发生内存泄漏的一个组件，因为它是将许多代码粘合在一起的组件。一个错误，最终导致泄漏。</p>
+<p><code>Apple</code>提供了一种复杂的工具来调试内存泄漏，例如<code>Instrument</code>，但是这不是我所使用的工具。当我怀疑视图控制器中存在泄漏时，我将使用<code>printin deinit</code>方法。</p>
+<pre><code>deinit {
+    print(&quot;deinit \(self)&quot;)
+}
+</code></pre>
+<p>如果有泄漏，deinit将不会被执行，也不会打印任何内容。即使它不是很优雅，但多年来我一直使用。</p>
+<h2 id="更好的方法">更好的方法</h2>
+<p>最近，我发现了一个非常好的技巧。</p>
+<p>使用符号断点来检测未释放的视图控制器。与我的概念相同print，但是更加整洁。您不会用print这种方式填充代码。</p>
+<ol>
+<li>
+<p>转到<code>Breakpoint Navigator</code>（菜单视图&gt;导航器&gt;显示<code>Breakpoint Navigator</code>或<code>command + 8</code>）<br>
+<img src="https://mumuwanglin.github.io/post-images/1617084121428.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>单击+并选择符号断点...或菜单调试&gt;断点&gt;创建符号断点...<br>
+<img src="https://mumuwanglin.github.io/post-images/1617084263696.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>设置Symbol值 <code>-[UIViewController dealloc]。</code><br>
+<img src="https://mumuwanglin.github.io/post-images/1617084299492.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>单击添加操作按钮，然后将其设置Sound为pop（或您喜欢的任何声音）。<br>
+<img src="https://mumuwanglin.github.io/post-images/1617084323778.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>单击我们的声音操作旁边的+，添加其他操作。</p>
+</li>
+<li>
+<p>将Log Message视图控制器释放后，将操作设置为，并将消息设置为要打印到控制台的任何内容。就我而言，我将其设置为<code>--- dealloc @(id)[$arg1 description]@</code>。<br>
+<img src="https://mumuwanglin.github.io/post-images/1617084359862.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>选中Automatically continue after evaluating actions选项，因为我们不希望调试器在释放视图控制器时暂停。<br>
+<img src="https://mumuwanglin.github.io/post-images/1617084391145.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>最终配置<br>
+<img src="https://mumuwanglin.github.io/post-images/1617084673829.png" alt="" loading="lazy"></p>
+</li>
+</ol>
+<h2 id="检测泄漏">检测泄漏</h2>
+<p>使用此断点后，只要视图控制器关闭导航框或从导航堆栈中弹出，便会听到弹出声和调试控制台中的登录信息。这意味着一切都按预期进行。<br>
+如果您弹出或关闭视图控制器，但听不到弹出的声音，则意味着存在泄漏。</p>
+<h2 id="结论">结论</h2>
+<p>这是最终的符号断点值。</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Symbol</td>
+<td>-[UIViewController dealloc]</td>
+</tr>
+<tr>
+<td>Module</td>
+<td>留空或 UIKitCore</td>
+</tr>
+<tr>
+<td>Action: Sound</td>
+<td>pop 或任何你喜欢的声音</td>
+</tr>
+<tr>
+<td>Action: Log Message</td>
+<td>--- dealloc @(id)[$arg1 description]@ 或您想在调试控制台中打印的内容</td>
+</tr>
+<tr>
+<td>Options</td>
+<td>检查一下 Automatically continue after evaluatin</td>
+</tr>
+</tbody>
+</table>
+
+            </div>
+          </article>
+        </div>
+        <div class="paper" data-aos="fade-in">
+          
+            <div class="next-post">
+              <div class="next">
+                下一篇
+              </div>
+              <a href="https://mumuwanglin.github.io/post/wkwebview-shi-yong-gong-lue/">
+                <h3 class="post-title">
+                  WKWebview使用攻略
+                </h3>
+              </a>
+            </div>
+          
+        </div>
+        
+          
+            <div class="paper" data-aos="fade-in">
+              <div id="gitalk-container"></div>
+            </div>
+          
+
+          
+        
+      </div>
+
+      <div class="sm-12 md-4 col sidebar">
+  <div class="paper info-container">
+    <img src="https://mumuwanglin.github.io/images/avatar.png?v=1658910586925" class="no-responsive avatar">
+    <div class="text-muted">每天进步一点点</div>
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      最新文章
+    </div>
+    <div class="row">
+      <ul>
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/qi-mao-ios-qi-dong-shi-jian-you-hua/">七猫 iOS 启动时间优化</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/iOS开源二进制使用插件(使用教程)/">iOS开源二进制使用插件(使用教程)</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-lu-you-qmrouter/">Swift 路由 QMRouter</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-uiscrollview-you-ce-kuai-su-hua-kuai/">Swift UIScrollView 右侧快速滑块</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/fang-wen-swift-shu-zu-shi-swift_isuniquelyreferenced_nonnull_native-zhong-de-exc_bad_access/">访问swift数组时，swift_isUniquelyReferenced_nonNull_native中的EXC_BAD_ACCESS</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/liao-yi-liao-bitcode/">聊一聊 Bitcode</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swiftji-lu-uilabel-de-kuo-zhan-ji-suan-label-de-shi-ji-gao-du-yi-ji-xing-shu/">Swift：记录UILabel的扩展，计算label的实际高度以及行数</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-ru-he-you-ya-de-pan-duan-nei-cun-xie-lou/">iOS 如何优雅的判断内存泄漏</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/wkwebview-shi-yong-gong-lue/">WKWebview使用攻略</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-zi-ding-yi-present-dong-hua-swift/">iOS 自定义present动画（Swift）</a>
+            </li>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      </ul>
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      标签列表
+    </div>
+    <div class="row">
+      
+        <a href="https://mumuwanglin.github.io/tag/igh_dS0bb/" class="badge secondary">
+          iOS
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/dPSLjLDmT/" class="badge warning">
+          Swift
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/6dEErRCiC/" class="badge ">
+          Gridea
+        </a>
+      
+    </div>
+  </div>
+  <div class="paper">
+    Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://mumuwanglin.github.io/atom.xml" target="_blank">RSS</a>
+  </div>
+</div>
+
+
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+
+<script type="application/javascript">
+
+AOS.init();
+
+hljs.initHighlightingOnLoad()
+
+</script>
+
+
+
+  
+    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+    <script>
+
+      var gitalk = new Gitalk({
+        clientID: '5349e8261382c7ffc4fa',
+        clientSecret: '3baf5e7c42196b8cc552884e1e029b5b894f7a06',
+        repo: 'mumuwanglin.github.io',
+        owner: 'mumuwanglin',
+        admin: ['mumuwanglin'],
+        id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+        distractionFreeMode: false  // Facebook-like distraction free mode
+      })
+
+      gitalk.render('gitalk-container')
+
+    </script>
+  
+
+  
+
+
+
+
+  </body>
+</html>

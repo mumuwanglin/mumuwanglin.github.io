@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>访问swift数组时，swift_isUniquelyReferenced_nonNull_native中的EXC_BAD_ACCESS | 木木的个人小站</title>
+<meta name="description" content="每天进步一点点">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="shortcut icon" href="https://mumuwanglin.github.io/favicon.ico?v=1658910586925">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/papercss@1.6.1/dist/paper.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+<link rel="stylesheet" href="https://mumuwanglin.github.io/styles/main.css">
+
+
+  
+    <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+  
+
+  
+
+<script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+
+
+  </head>
+  <body>
+  
+    <nav class="navbar border fixed split-nav">
+  <div class="nav-brand">
+    <h3><a href="https://mumuwanglin.github.io">木木的个人小站</a></h3>
+  </div>
+  <div class="collapsible">
+    <input id="collapsible1" type="checkbox" name="collapsible1">
+    <button>
+      <label for="collapsible1">
+        <div class="bar1"></div>
+        <div class="bar2"></div>
+        <div class="bar3"></div>
+      </label>
+    </button>
+    <div class="collapsible-body">
+      <ul class="inline">
+        
+          <li>
+            
+              <a href="/" class="menu">
+                首页
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/archives" class="menu">
+                归档
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/tags" class="menu">
+                标签
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/post/about" class="menu">
+                关于
+              </a>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div id="top" class="row site">
+      <div class="sm-12 md-8 col">
+        <div class="paper">
+          <article class="article">
+            <h1>访问swift数组时，swift_isUniquelyReferenced_nonNull_native中的EXC_BAD_ACCESS</h1>
+            <p class="article-meta">
+              2020-09-15
+              
+                <a href="https://mumuwanglin.github.io/tag/igh_dS0bb/" class="badge secondary">
+                  iOS
+                </a>
+              
+                <a href="https://mumuwanglin.github.io/tag/dPSLjLDmT/" class="badge ">
+                  Swift
+                </a>
+              
+            </p>
+            
+            <div class="post-content">
+              <h2 id="问题">问题</h2>
+<p>场景比较简单：使用一个单例做缓存。单例中加了一个可变字典，用于缓存已经加载过的字体。<br>
+根据字体的名称从字典中查找字体对象，当找不到对象的时候就创建一个新的UIFont对象，并保存到字典中。找到对象就直接取现在有的缓存UIFont。</p>
+<p>多线程时，MutableDictionary取对象不是元子操作，所以，多个线程请求同一个字体对象时都得到nil。然后就都跑去创建UIFont对象，并都试图保存。创建UIFont对象时，使用imageNamed方法，系统做了优化，进行缓存处理了。<br>
+NSMutableDictionary中添加相同的key的时候，会被原来的对象移除。第一个线程保存结束后，此时如果第二个线程试图添加的对象正是第一个线程刚放进去的对象，会出现这样的流程：判断字典中是否有key时成立，然后将对象移除，内存回收，再往字典里写对象时，就等于设置了一个野指针对象。</p>
+<h2 id="解决">解决</h2>
+<p>使用线程安全的YYCache作为缓存的容器</p>
+<pre><code>// 原始代码
+private static var cachedFont:[String: UIFont]?
+
+// 缓存字体的方法
+private static func getCachedFont(_ fontName: FontType, fontSize: CGFloat) -&gt; UIFont {
+    // 首次初始化
+    if cachedFont == nil { cachedFont = [String: UIFont]() }
+    let hashKey = &quot;\(fontName.rawValue)\(fontSize)&quot;
+    if let tempFont = UIFont.cachedFont?[hashKey] {
+        return tempFont
+    } else {
+        let customFont = UIFont(name: fontName.rawValue, size: fontSize) ?? UIFont.fontWithSize(fontSize)
+        UIFont.cachedFont?[hashKey] = customFont
+        return customFont
+    }
+}
+}   
+</code></pre>
+<pre><code>// 修改代码
+static let customFontCached: YYMemoryCache? = {
+    let memoryCache = YYMemoryCache()
+    memoryCache.name = &quot;qm.CustomFontCache&quot;
+    memoryCache.shouldRemoveAllObjectsWhenEnteringBackground = false
+    memoryCache.shouldRemoveAllObjectsOnMemoryWarning = false
+    return memoryCache
+}()
+
+// 缓存字体的方法
+private static func getCachedFont(_ fontName: FontType, fontSize: CGFloat) -&gt; UIFont {
+    let hashKey = &quot;\(fontName.rawValue)\(fontSize)&quot;
+    if let tempFont = customFontCached?.object(forKey: hashKey) as? UIFont {
+        return tempFont
+    } else {
+        let customFont = UIFont(name: fontName.rawValue, size: fontSize) ?? UIFont.fontWithSize(fontSize)
+        customFontCached?.setObject(customFont, forKey: hashKey)
+        return customFont
+    }
+}
+</code></pre>
+
+            </div>
+          </article>
+        </div>
+        <div class="paper" data-aos="fade-in">
+          
+            <div class="next-post">
+              <div class="next">
+                下一篇
+              </div>
+              <a href="https://mumuwanglin.github.io/post/liao-yi-liao-bitcode/">
+                <h3 class="post-title">
+                  聊一聊 Bitcode
+                </h3>
+              </a>
+            </div>
+          
+        </div>
+        
+          
+            <div class="paper" data-aos="fade-in">
+              <div id="gitalk-container"></div>
+            </div>
+          
+
+          
+        
+      </div>
+
+      <div class="sm-12 md-4 col sidebar">
+  <div class="paper info-container">
+    <img src="https://mumuwanglin.github.io/images/avatar.png?v=1658910586925" class="no-responsive avatar">
+    <div class="text-muted">每天进步一点点</div>
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      最新文章
+    </div>
+    <div class="row">
+      <ul>
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/qi-mao-ios-qi-dong-shi-jian-you-hua/">七猫 iOS 启动时间优化</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/iOS开源二进制使用插件(使用教程)/">iOS开源二进制使用插件(使用教程)</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-lu-you-qmrouter/">Swift 路由 QMRouter</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-uiscrollview-you-ce-kuai-su-hua-kuai/">Swift UIScrollView 右侧快速滑块</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/fang-wen-swift-shu-zu-shi-swift_isuniquelyreferenced_nonnull_native-zhong-de-exc_bad_access/">访问swift数组时，swift_isUniquelyReferenced_nonNull_native中的EXC_BAD_ACCESS</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/liao-yi-liao-bitcode/">聊一聊 Bitcode</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swiftji-lu-uilabel-de-kuo-zhan-ji-suan-label-de-shi-ji-gao-du-yi-ji-xing-shu/">Swift：记录UILabel的扩展，计算label的实际高度以及行数</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-ru-he-you-ya-de-pan-duan-nei-cun-xie-lou/">iOS 如何优雅的判断内存泄漏</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/wkwebview-shi-yong-gong-lue/">WKWebview使用攻略</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-zi-ding-yi-present-dong-hua-swift/">iOS 自定义present动画（Swift）</a>
+            </li>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      </ul>
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      标签列表
+    </div>
+    <div class="row">
+      
+        <a href="https://mumuwanglin.github.io/tag/igh_dS0bb/" class="badge ">
+          iOS
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/dPSLjLDmT/" class="badge secondary">
+          Swift
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/6dEErRCiC/" class="badge secondary">
+          Gridea
+        </a>
+      
+    </div>
+  </div>
+  <div class="paper">
+    Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://mumuwanglin.github.io/atom.xml" target="_blank">RSS</a>
+  </div>
+</div>
+
+
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+
+<script type="application/javascript">
+
+AOS.init();
+
+hljs.initHighlightingOnLoad()
+
+</script>
+
+
+
+  
+    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+    <script>
+
+      var gitalk = new Gitalk({
+        clientID: '5349e8261382c7ffc4fa',
+        clientSecret: '3baf5e7c42196b8cc552884e1e029b5b894f7a06',
+        repo: 'mumuwanglin.github.io',
+        owner: 'mumuwanglin',
+        admin: ['mumuwanglin'],
+        id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+        distractionFreeMode: false  // Facebook-like distraction free mode
+      })
+
+      gitalk.render('gitalk-container')
+
+    </script>
+  
+
+  
+
+
+
+
+  </body>
+</html>

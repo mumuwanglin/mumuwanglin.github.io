@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>七猫 iOS 启动时间优化 | 木木的个人小站</title>
+<meta name="description" content="每天进步一点点">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="shortcut icon" href="https://mumuwanglin.github.io/favicon.ico?v=1658910586925">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/papercss@1.6.1/dist/paper.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+<link rel="stylesheet" href="https://mumuwanglin.github.io/styles/main.css">
+
+
+  
+    <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+  
+
+  
+
+<script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+
+
+  </head>
+  <body>
+  
+    <nav class="navbar border fixed split-nav">
+  <div class="nav-brand">
+    <h3><a href="https://mumuwanglin.github.io">木木的个人小站</a></h3>
+  </div>
+  <div class="collapsible">
+    <input id="collapsible1" type="checkbox" name="collapsible1">
+    <button>
+      <label for="collapsible1">
+        <div class="bar1"></div>
+        <div class="bar2"></div>
+        <div class="bar3"></div>
+      </label>
+    </button>
+    <div class="collapsible-body">
+      <ul class="inline">
+        
+          <li>
+            
+              <a href="/" class="menu">
+                首页
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/archives" class="menu">
+                归档
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/tags" class="menu">
+                标签
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/post/about" class="menu">
+                关于
+              </a>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div id="top" class="row site">
+      <div class="sm-12 md-8 col">
+        <div class="paper">
+          <article class="article">
+            <h1>七猫 iOS 启动时间优化</h1>
+            <p class="article-meta">
+              2021-08-06
+              
+            </p>
+            
+            <div class="post-content">
+              <h2 id="前言">前言</h2>
+<p>随着产品的迭代，产品功能越来越多， App 大小越来越大，导致越来越多的体验和性能问题，其中用户首先感知的肯定是启动速度。传统的启动优化有减少不必要代码，懒加载动态库，任务优先级划分等，此类相关优化的策略已经很普遍了，这些优化主要是从减少主线程任务的角度来出发，很难再做出大的提升。</p>
+<h2 id="app-启动时都做了些什么">App 启动时都做了些什么？</h2>
+<p>一般而言，App 的启动时间，指的是从用户点击 App 开始，到用户看到第一个界面之间的时间。启动主要包括三个阶段：</p>
+<ol>
+<li>main() 函数执行前；</li>
+<li>main() 函数执行后；</li>
+<li>首屏渲染完成后。<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210806204606.png" alt="" loading="lazy"></li>
+</ol>
+<h3 id="main函数之前">main函数之前</h3>
+<p>WWDC 2016 Session 406优化应用程序启动时间详细介绍了每个步骤以及改进时间的提示，以下是简要的总结说明：</p>
+<ol>
+<li>dylib loading time: 动态加载程序查找并读取应用程序使用的依赖动态库。每个库本身都可能有依赖项。虽然苹果系统框架的加载是高度优化的，但加载嵌入式框架可能会很耗时。为了加快动态库的加载速度，苹果建议您使用更少的动态库，或者考虑合并它们
+<ul>
+<li>建议的目标是六个额外的(非系统)框架</li>
+</ul>
+</li>
+<li>Rebase/binding time：修正调整镜像内的指针(重新调整)和设置指向镜像外符号的指针(绑定)。为了加快重新定位/绑定时间，我们需要更少的指针修复。
+<ul>
+<li>如果有大量(大的是20000)Objective-C类、选择器和类别的应用程序可以增加800ms的启动时间。</li>
+<li>如果应用程序使用C++代码，那么使用更少的虚拟函数。</li>
+<li>使用Swift结构体通常也更快。</li>
+</ul>
+</li>
+<li>ObjC setup time：Objective-C运行时需要进行设置类、类别和选择器注册。我们对重新定位绑定时间所做的任何改进也将优化这个设置时间。</li>
+<li>initializer time：运行初始化程序。如果使用了Objective-C的 +load 方法，请将其替换为 +initialize 方法。</li>
+</ol>
+<h3 id="main函数">main函数</h3>
+<p>main函数执行后的阶段，指的是从 main函数执行开始，到 AappDelegate 的 didFinishLaunchingWithOptions 方法里首屏渲染相关方法执行完成。</p>
+<h3 id="首屏渲染完成后">首屏渲染完成后</h3>
+<p>首屏渲染后的这个阶段，主要完成的是，非首屏其他业务服务模块的初始化、监听的注册、配置文件的读取等。</p>
+<h2 id="减少main函数前的dyld的加载">减少main函数前的dyld的加载</h2>
+<h3 id="如何统计各个阶段的执行时间">如何统计各个阶段的执行时间？</h3>
+<p>Xcode 为我们提供了一个参数<code>DYLD_PRINT_STATISTICS</code>，配置完成后，就可以获取 pre-main 各个阶段的时间。<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807103014.png" alt="" loading="lazy"><br>
+运行一下工程，控制台会输出以下内容：</p>
+<pre><code>Total pre-main time: 1.1 seconds (100.0%)
+         dylib loading time: 296.28 milliseconds (25.3%)
+        rebase/binding time: 135.08 milliseconds (11.5%)
+            ObjC setup time:  71.43 milliseconds (6.1%)
+           initializer time: 664.75 milliseconds (56.9%)
+           slowest intializers :
+             libSystem.B.dylib :  14.72 milliseconds (1.2%)
+                      YYReader : 668.40 milliseconds (57.2%)
+</code></pre>
+<p>在减少十个动态库后，使用 iPhone 7 测试十组启动数据：<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807154146.png" alt="" loading="lazy"><br>
+看出来，使用静态库确实可以减少一部分的启动时候，而且减少的动态库越多，效果越明显。</p>
+<h3 id="动态库和静态库对比">动态库和静态库对比</h3>
+<table>
+<thead>
+<tr>
+<th>库类型</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>静态库</td>
+<td>1、链接时会完整的复制到 mach-o 中 <br> 2、由系统一次性加载，效率更高</td>
+<td>1. 会使主 mach-o 文件增大</td>
+</tr>
+<tr>
+<td>动态库</td>
+<td>1、 无需拷贝到主 mach-o 文件中，主 mach-o 体积小 <br> 2、可运多个应用程序共享内存中得同一份库文件，节省资源</td>
+<td>1. 需要额外加载动态库，造成性能损耗 <br> 2、动态库在程序运行时由系统动态加载到内存，供程序调用，如果环境缺少动态库或者库的版本不正确，就会导致程序无法运行</td>
+</tr>
+</tbody>
+</table>
+<h3 id="动态库如何修改为静态库">动态库如何修改为静态库？</h3>
+<ol>
+<li>在公司的git仓库中创建一个私有项目，用于存放私有podspec</li>
+<li>在<code>Alamofire</code>开源代码中找到原作者提供的<code>podspec</code>文件</li>
+</ol>
+<pre><code>Pod::Spec.new do |s|
+  s.name = 'Alamofire'
+  s.version = '4.8.1'
+  s.license = 'MIT'
+  s.summary = 'Elegant HTTP Networking in Swift'
+  s.homepage = 'https://github.com/Alamofire/Alamofire'
+  s.social_media_url = 'http://twitter.com/AlamofireSF'
+  s.authors = { 'Alamofire Software Foundation' =&gt; 'info@alamofire.org' }
+  s.source = { :git =&gt; 'https://github.com/Alamofire/Alamofire.git', :tag =&gt; s.version }
+  s.documentation_url = 'https://alamofire.github.io/Alamofire/'
+
+  s.ios.deployment_target = '8.0'
+  s.osx.deployment_target = '10.10'
+  s.tvos.deployment_target = '9.0'
+  s.watchos.deployment_target = '2.0'
+  
+  s.source_files = 'Source/*.swift'
+end
+</code></pre>
+<ol start="3">
+<li>拷贝作者的podspec文件，在文件中加入支持静态库打包的代码</li>
+</ol>
+<pre><code>Pod::Spec.new do |s|
+  s.name = 'Alamofire'
+  s.version = '4.8.1'
+  s.license = 'MIT'
+  s.summary = 'Elegant HTTP Networking in Swift'
+  s.homepage = 'https://github.com/Alamofire/Alamofire'
+  s.social_media_url = 'http://twitter.com/AlamofireSF'
+  s.authors = { 'Alamofire Software Foundation' =&gt; 'info@alamofire.org' }
+  s.source = { :git =&gt; 'https://github.com/Alamofire/Alamofire.git', :tag =&gt; s.version }
+  s.documentation_url = 'https://alamofire.github.io/Alamofire/'
+
+  s.ios.deployment_target = '8.0'
+  s.osx.deployment_target = '10.10'
+  s.tvos.deployment_target = '9.0'
+  s.watchos.deployment_target = '2.0'
+  
+  # 支持静态库打包
+  s.static_framework = true
+  s.source_files = 'Source/*.swift'
+end
+</code></pre>
+<ol start="4">
+<li>将新生成的文件放入私有仓库中 为了与线上版本进行准确区分可以搞一个特殊的版本号</li>
+<li>在Pod中引入私有仓库 pod集成特定版本的项目即可</li>
+</ol>
+<h2 id="clang插桩实现二进制重排">Clang插桩实现二进制重排</h2>
+<p>自从抖音分析了<a href="https://mp.weixin.qq.com/s/Drmmx5JtjG3UtTFksL6Q8Q">抖音研发实践：基于二进制文件重排的解决方案 APP启动速度提升超15%</a>文章, 二进制重排优化 pre-main 阶段的启动时间自此被大家广为流传 。抖音采用的是静态扫描+运行时trace的方案，目前仍存一些问题：<strong>hook Objc_msgSend 无法解决的 纯swift , block , c++ 方法</strong>。<br>
+通过调研，我们发现clang 插桩的方式可以完美解决抖音遇到问题。</p>
+<h3 id="原理">原理</h3>
+<ol>
+<li>Page Fault<br>
+进程如果能直接访问物理内存无疑是很不安全的，所以操作系统在物理内存的上又建立了一层虚拟内存。为了提高效率和方便管理，又对虚拟内存和物理内存又进行分页（Page）。当进程访问一个虚拟内存Page而对应的物理内存却不存在时，会触发一次缺页中断（Page Fault），分配物理内存，有需要的话会从磁盘mmap读取数据。</li>
+</ol>
+<p>通过App Store渠道分发的App，Page Fault还会进行签名验证，所以一次Page Fault的耗时比想象的要多：<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807111357.png" alt="" loading="lazy"></p>
+<p>查看 Page Fault 的数量<br>
+我们用到 Instruments 中的 System Trace工具<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807113345.png" alt="" loading="lazy"></p>
+<ol>
+<li>重排<br>
+编译器在生成二进制代码的时候，默认按照链接的Object File(.o)顺序写文件，按照Object File内部的函数顺序写函数<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807111527.png" alt="" loading="lazy"></li>
+</ol>
+<p>但如果我们把method1、method5、method6排布到一起，那么只需要一个Page Fault即可，这就是二进制文件重排的核心原理<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807111553.png" alt="" loading="lazy"></p>
+<p>iOS App之所以能够使用二进制重排，是因为Xcode 已经提供好这个机制 , 并且 <a href="https://opensource.apple.com/tarballs/objc4/">libobjc</a> 实际上也是用了二进制重排进行优化 .<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807111842.png" alt="" loading="lazy"></p>
+<ol>
+<li>获取启动加载所有的函数的符号<br>
+如何获取所有的符号信息？
+<ul>
+<li>Hook： oc 或者 swift @objc dynamic 修饰的方法，调用都会通过 objc_MsgSend 发送消息，hook objc_MsgSend 可以做到这个方法的检测。但如果是可变参数个数，则需要汇编来获取参数</li>
+<li>二进制静态扫描： Mach-O文件在特定段Segment和Section里存储着符号及函数数据，通过静态扫描Mach-O文件，主要是分析获取load方法和c++ constructor 构造方法。<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807112557.png" alt="" loading="lazy"></li>
+<li>clang 汇编插桩： clang 本身已经提供了一个代码覆盖率检测机制<a href="https://clang.llvm.org/docs/SanitizerCoverage.html">SanitizerCoverage</a></li>
+</ul>
+</li>
+</ol>
+<h3 id="实施">实施</h3>
+<ol>
+<li>clang 插桩<br>
+使用 clang 自带的 <a href="https://clang.llvm.org/docs/SanitizerCoverage.html">SanitizerCoverage</a> 工具<br>
+新建一个测试工程：Xcode -&gt; Build Setting -&gt; Other C Flags，添加 <code>-fsanitize-coverage=trace-pc-guard</code><br>
+注： 如果项目内使用了 Swift， 需要在 Other Swift Flags <code> -sanitize-coverage=func 和 -sanitize=undefined__</code><br>
+在 ViewController.m 中添加SanitizerCoverage中代码</li>
+</ol>
+<pre><code>#include &lt;stdint.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;sanitizer/coverage_interface.h&gt;
+
+void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
+  static uint64_t N;  // Counter for the guards.
+  if (start == stop || *start) return;  // Initialize only once.
+  printf(&quot;INIT: %p %p\n&quot;, start, stop);
+  for (uint32_t *x = start; x &lt; stop; x++)
+    *x = ++N;  // Guards should start from 1.
+}
+
+void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
+  if (!*guard) return;  // Duplicate the guard check.
+//  void *PC = __builtin_return_address(0);
+  char PcDescr[1024];
+//  __sanitizer_symbolize_pc(PC, &quot;%p %F %L&quot;, PcDescr, sizeof(PcDescr));
+  printf(&quot;guard: %p %x PC %s\n&quot;, guard, *guard, PcDescr);
+}
+</code></pre>
+<p>运行工程，查看打印<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807114605.png" alt="" loading="lazy"><br>
+代码命名 INIT 后面打印的两个指针地址叫 start 和 stop . 那么我们通过 lldb 来查看下从 start 到 stop 这个内存地址里面所存储的到底是啥 .<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807115012.png" alt="" loading="lazy"><br>
+发现存储的是从 1 到 14 这个序号 . 那么我们来添加一个 oc 方法 .</p>
+<pre><code>- (void)test{
+    
+}
+</code></pre>
+<p>发现从 0e 变成了 0f . 也就是说存储的 1 到 14 这个序号变成了 1 到 15 .<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807115141.png" alt="" loading="lazy"><br>
+在添加一个 一些函数 ，oe 变成了 11，也就十进制的 17</p>
+<pre><code>void(^block)(void) = ^(void){
+    
+};
+
+void test()
+{
+    block();
+}
+
+- (void)touchesBegan:(NSSet&lt;UITouch *&gt; *)touches withEvent:(UIEvent *)event {
+    test();
+}
+</code></pre>
+<p>也就说明这个stop内存保存的就是工程所有函数的个数.<br>
+我们发现，每点击一次屏幕就有3个打印。我们在touchesBegan:touches withEvent:开头设置一个点断，并开启汇编显示(菜单栏Debug→Debug Workflow→Always Show Disassembly)<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807132114.png" alt="" loading="lazy"><br>
+可以看出，编译器在touchesBegan前面调用了 __sanitizer_cov_trace_pc_guard函数。<br>
+通过断点调试，我们发现每次函数的调用，都会先到__sanitizer_cov_trace_pc_guard函数中来，所以我们可以在 __sanitizer_cov_trace_pc_guard 获取 PC 寄存器，根据 PC 寄存器地址从而获取方法的名称。<br>
+拿到了全部的符号之后需要保存，但是由于方法会在各个线程执行，所以不能用数组直接保存数据。所以可以把获取到的数据保存在原子队列中，然后我们从队列获取调用的方法名称。</p>
+<pre><code>
+#import &lt;libkern/OSAtomic.h&gt;
+#import &lt;dlfcn.h&gt;
+
+void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
+  static uint64_t N;  // Counter for the guards.
+  if (start == stop || *start) return;  // Initialize only once.
+  for (uint32_t *x = start; x &lt; stop; x++)
+    *x = (uint32_t)++N;  // Guards should start from 1.
+}
+
+void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
+    if (!*guard) return;  // Duplicate the guard check.
+    // 获取函数__sanitizer_cov_trace_pc_guard调用时下个寄存的地址
+    void *PC = __builtin_return_address(0);
+    
+    // 根据地址获取调用的方法名称
+    SymbolNode * node = malloc(sizeof(SymbolNode));
+    *node = (SymbolNode){PC, NULL};
+    
+    // offsetof 用在这里是为了入队添加下一个节点找到 前一个节点next指针的位置
+    OSAtomicEnqueue(&amp;symbolList, node, offsetof(SymbolNode, next));
+}
+
+static OSQueueHead symbolList = OS_ATOMIC_QUEUE_INIT;
+
+typedef struct {
+    void *pc;
+    void *next;
+} SymbolNode;
+
++ (BOOL)export {
+    NSMutableArray &lt;NSString *&gt;* symbolNames = [NSMutableArray array];
+    while (YES) {
+        SymbolNode *node = OSAtomicDequeue(&amp;symbolList, offsetof(SymbolNode, next));
+        if (node == NULL) {
+            break;
+        }
+        
+        Dl_info info;
+        dladdr(node-&gt;pc, &amp;info);
+        
+        NSString * name = @(info.dli_sname);
+        // 判读是否是 oc 的方法
+        BOOL isObjc = [name hasPrefix:@&quot;+[&quot;] || [name hasPrefix:@&quot;-[&quot;];
+        // c 方法前加 _
+        NSString * symbolName = isObjc? name : [@&quot;_&quot; stringByAppendingString:name];
+        // 去重
+        if (![symbolNames containsObject:symbolName]) {
+            [symbolNames addObject:symbolName];
+        }
+    }
+    
+    // 取反
+    NSMutableArray *funcs = [[symbolNames reverseObjectEnumerator] allObjects].mutableCopy;
+    // 去除当前方法的 symbols
+    [funcs removeObject:[NSString stringWithFormat:@&quot;%s&quot;, __FUNCTION__]];
+    
+    
+    //将结果写入到文件
+    NSString * funcString = [funcs componentsJoinedByString:@&quot;\n&quot;];
+    NSData * fileContents = [funcString dataUsingEncoding:NSUTF8StringEncoding];
+    // 写入指定文件夹
+    return [[NSFileManager defaultManager] createFileAtPath:[NSHomeDirectory() stringByAppendingString:@&quot;/lb.roder&quot;] contents:fileContents attributes:nil];
+}
+</code></pre>
+<ol>
+<li>
+<p>从真机上获取order文件<br>
+我们把order文件存在了真机上的tmp文件夹中，要怎么拿到呢？<br>
+在<code>Window→Devices And Simulators</code>(快捷键⇧+⌘+2)中：<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807133918.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>Xcode 是用的链接器叫做 ld , ld 有一个参数叫 Order File , 我们可以通过这个参数配置一个 order 文件的路径，在这个 order 文件中 , 将你需要的符号按顺序写在里面 ，当工程 build 的时候 , Xcode 会读取这个文件 , 打的二进制包就会按照这个文件中的符号顺序进行生成对应的 mach-O<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807151830.png" alt="" loading="lazy"></p>
+</li>
+<li>
+<p>校验是重排成功<br>
+Build Settings中修改Write Link Map File为YES编译后会生成一个Link Map符号表txt文件<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807134152.png" alt="" loading="lazy"><br>
+执行⌘ + B构建后，选择Product中的App，在Finder中打开，选择Intermediates.noindex文件夹，找到LinkMap文件，这里是*-LinkMap-normal-arm64.txt。<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807134345.png" alt="" loading="lazy"></p>
+</li>
+</ol>
+<p>对比 txt 文档和 order 文件是否可以匹配<br>
+同时可以在 System Trace 工具中查看是否减少。</p>
+<h3 id="优化">优化</h3>
+<p>由于每次都要要导入重排的源代码，操作很复杂，所以我把上述的一些代码封装成了一个组件 <a href="http://124.243.254.98/wanglin/qmtracingpcs"><br>
+QMTracingPCs</a></p>
+<p>后续使用起来也分方便</p>
+<pre><code>// 第一步
+use_frameworks!
+
+platform :ios, '9.0'
+
+target 'QMTracingPCs_Example' do
+  pod 'QMTracingPCs'
+end
+
+// 第二步
+// 如果包含三方库，可以添加如下配置
+post_install do |installer|
+    require './Pods/QMTracingPCs/QMTracingPCs/Classes/target_track.rb'
+    target_track(installer)
+end
+
+// 第三步
+// 在项目内启动成功的地方，添加如何代码
+override func viewDidLoad() {
+    super.viewDidLoad()
+    let filePath = NSTemporaryDirectory().appending(&quot;/YYTracingPCs.order&quot;)
+    QMTracingPCs.exportSymbols(filePath: filePath)
+}
+</code></pre>
+<hr>
+<p>同时在这个开源工具中添加了二进制重排预分析工具，只需要切换 target 就可以使用<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807140049.png" alt="" loading="lazy"></p>
+<p>使用方式：</p>
+<ol>
+<li>在 Target -&gt; Build Settings 下，找到 Write Link Map File 来设置输出与否 , 默认是 no .</li>
+<li>修改完毕之后，clean 一下，运行工程，Products -&gt; Show in Finder，在mach-o文件上上层目录 __Intermediates.noindex__文件下找到一个txt文件。将其重命名为linked_map.txt</li>
+<li>从沙盒路径获取 order 文件，</li>
+<li>把 txt 文件和 order 放在 Desktop 文件夹下，配置路径</li>
+</ol>
+<pre><code>// 链接文件和order文件根目录 注意：换成自己的路径字符串
+static let BASE_PATH: String = &quot;/Users/mumu/Desktop&quot;
+// 链接文件名
+static let LINKED_MAP: String = &quot;linked_map.txt&quot;
+// order 文件名
+static let LB_ORDER: String = &quot;lb.order&quot;
+</code></pre>
+<p>控制台输出</p>
+<pre><code>linked map __Text(链接文件)：
+     起始地址：0x1000051ec
+     结束地址：0x101a38c58
+     分配的虚拟内存页个数：1677
+order symbol(重排文件)：
+     需要重排的符号个数：%：1774
+     分布的虚拟内存页个数：238
+     二进制重排后分布的虚拟内存页个数：21
+     内存缺页中断减少的个数：217
+     预估节省的时间：108.5 ms
+</code></pre>
+<p>使用二进制重排之后的工程，再次分别编译出 linked_map.txt 和 lb.order 文件，使用此工具再次运行检查，确认重排效果。</p>
+<pre><code>linked map __Text(链接文件)：
+     起始地址：0x1000060ac
+     结束地址：0x102b0c658
+     分配的虚拟内存页个数：2754
+order symbol(重排文件)：
+     需要重排的符号个数：%：3570
+     分布的虚拟内存页个数：71
+     二进制重排后分布的虚拟内存页个数：71
+     内存缺页中断减少的个数：0
+     预估节省的时间：0.0 ms
+</code></pre>
+<h2 id="pgo-优化">PGO 优化</h2>
+<p>PGO(Performance Guided Optimization)， 是 Xoode 提供一种优化方案，但苹果本身的方案放在我们这些采用 CI 工具构建的大型 app 上部署和使用起来较为麻烦，且不利于我们自己去发现分析问题。同时 PGO 是针对 Objective-C 的一种优化方案，对 Swift支持不太好，所有我们就不再做次方面的优化了。<br>
+<img src="https://raw.githubusercontent.com/mumuwanglin/PicGo/main/img/20210807141025.png" alt="" loading="lazy"></p>
+<h2 id="总结">总结</h2>
+<ol>
+<li>通过将动态库转为静态库，我们优化了dylib loading time</li>
+<li>通过二进制重排，让启动需要的方法排列更紧凑，减少了Page Fault的次数</li>
+<li>由于代码逻辑的改动，建议三个月做一次重排，生成一次 order 文件。</li>
+</ol>
+<p>这篇文章主要讲 pre-mian 之前的一些优化操作，其实 mian 之后也有一些优化操作，比如启动是不必要代码的减少，动态库的懒加载，以及一些非必要启动任务的延后等等。</p>
+<h2 id="参考文档">参考文档</h2>
+<p><a href="https://opensource.apple.com/tarballs/objc4/">libobjc</a></p>
+<p><a href="https://clang.llvm.org/docs/SanitizerCoverage.html">Clang SanitizerCoverage</a></p>
+<p><a href="https://mp.weixin.qq.com/s/Drmmx5JtjG3UtTFksL6Q8Q">抖音研发实践：基于二进制文件重排的解决方案 APP启动速度提升超15%</a></p>
+<p><a href="https://zhuanlan.zhihu.com/p/396550853?utm_source=wechat_session&amp;utm_medium=social&amp;utm_oi=1337740201394339842&amp;wechatShare=1&amp;s_r=0">脉脉iOS如何启动秒开</a></p>
+<p><a href="https://juejin.cn/post/6844904192193085448">懒人版二进制重排</a></p>
+<p><a href="https://juejin.cn/post/6844904130406793224">iOS 优化篇 - 启动优化之Clang插桩实现二进制重排</a></p>
+
+            </div>
+          </article>
+        </div>
+        <div class="paper" data-aos="fade-in">
+          
+            <div class="next-post">
+              <div class="next">
+                下一篇
+              </div>
+              <a href="https://mumuwanglin.github.io/post/iOS开源二进制使用插件(使用教程)/">
+                <h3 class="post-title">
+                  iOS开源二进制使用插件(使用教程)
+                </h3>
+              </a>
+            </div>
+          
+        </div>
+        
+          
+            <div class="paper" data-aos="fade-in">
+              <div id="gitalk-container"></div>
+            </div>
+          
+
+          
+        
+      </div>
+
+      <div class="sm-12 md-4 col sidebar">
+  <div class="paper info-container">
+    <img src="https://mumuwanglin.github.io/images/avatar.png?v=1658910586925" class="no-responsive avatar">
+    <div class="text-muted">每天进步一点点</div>
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      最新文章
+    </div>
+    <div class="row">
+      <ul>
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/qi-mao-ios-qi-dong-shi-jian-you-hua/">七猫 iOS 启动时间优化</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/iOS开源二进制使用插件(使用教程)/">iOS开源二进制使用插件(使用教程)</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-lu-you-qmrouter/">Swift 路由 QMRouter</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-uiscrollview-you-ce-kuai-su-hua-kuai/">Swift UIScrollView 右侧快速滑块</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/fang-wen-swift-shu-zu-shi-swift_isuniquelyreferenced_nonnull_native-zhong-de-exc_bad_access/">访问swift数组时，swift_isUniquelyReferenced_nonNull_native中的EXC_BAD_ACCESS</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/liao-yi-liao-bitcode/">聊一聊 Bitcode</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swiftji-lu-uilabel-de-kuo-zhan-ji-suan-label-de-shi-ji-gao-du-yi-ji-xing-shu/">Swift：记录UILabel的扩展，计算label的实际高度以及行数</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-ru-he-you-ya-de-pan-duan-nei-cun-xie-lou/">iOS 如何优雅的判断内存泄漏</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/wkwebview-shi-yong-gong-lue/">WKWebview使用攻略</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-zi-ding-yi-present-dong-hua-swift/">iOS 自定义present动画（Swift）</a>
+            </li>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      </ul>
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      标签列表
+    </div>
+    <div class="row">
+      
+        <a href="https://mumuwanglin.github.io/tag/igh_dS0bb/" class="badge warning">
+          iOS
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/dPSLjLDmT/" class="badge secondary">
+          Swift
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/6dEErRCiC/" class="badge secondary">
+          Gridea
+        </a>
+      
+    </div>
+  </div>
+  <div class="paper">
+    Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://mumuwanglin.github.io/atom.xml" target="_blank">RSS</a>
+  </div>
+</div>
+
+
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+
+<script type="application/javascript">
+
+AOS.init();
+
+hljs.initHighlightingOnLoad()
+
+</script>
+
+
+
+  
+    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+    <script>
+
+      var gitalk = new Gitalk({
+        clientID: '5349e8261382c7ffc4fa',
+        clientSecret: '3baf5e7c42196b8cc552884e1e029b5b894f7a06',
+        repo: 'mumuwanglin.github.io',
+        owner: 'mumuwanglin',
+        admin: ['mumuwanglin'],
+        id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+        distractionFreeMode: false  // Facebook-like distraction free mode
+      })
+
+      gitalk.render('gitalk-container')
+
+    </script>
+  
+
+  
+
+
+
+
+  </body>
+</html>

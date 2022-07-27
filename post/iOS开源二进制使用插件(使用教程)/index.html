@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>iOS开源二进制使用插件(使用教程) | 木木的个人小站</title>
+<meta name="description" content="每天进步一点点">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="shortcut icon" href="https://mumuwanglin.github.io/favicon.ico?v=1658910586925">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/papercss@1.6.1/dist/paper.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+<link rel="stylesheet" href="https://mumuwanglin.github.io/styles/main.css">
+
+
+  
+    <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
+  
+
+  
+
+<script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+
+
+  </head>
+  <body>
+  
+    <nav class="navbar border fixed split-nav">
+  <div class="nav-brand">
+    <h3><a href="https://mumuwanglin.github.io">木木的个人小站</a></h3>
+  </div>
+  <div class="collapsible">
+    <input id="collapsible1" type="checkbox" name="collapsible1">
+    <button>
+      <label for="collapsible1">
+        <div class="bar1"></div>
+        <div class="bar2"></div>
+        <div class="bar3"></div>
+      </label>
+    </button>
+    <div class="collapsible-body">
+      <ul class="inline">
+        
+          <li>
+            
+              <a href="/" class="menu">
+                首页
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/archives" class="menu">
+                归档
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/tags" class="menu">
+                标签
+              </a>
+            
+          </li>
+        
+          <li>
+            
+              <a href="/post/about" class="menu">
+                关于
+              </a>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <div id="top" class="row site">
+      <div class="sm-12 md-8 col">
+        <div class="paper">
+          <article class="article">
+            <h1>iOS开源二进制使用插件(使用教程)</h1>
+            <p class="article-meta">
+              2021-03-30
+              
+            </p>
+            
+            <div class="post-content">
+              <p><a href="https://github.com/MeetYouDevs/cocoapods-imy-bin">GitHub 地址</a></p>
+<h2 id="概要">概要</h2>
+<p>cocoapods-imy-bin功能点：</p>
+<ol>
+<li>组件二进制化，无入侵式支持组件二进制化，致力于解决Ci打包速度慢、研发编译慢等编译问题。</li>
+<li>本地配置文件 - <code>Podfile_local</code></li>
+<li>二进制源码调试<code>pod bin code</code>，类似美团 iOS 工程 <code>zsource</code> 命令背后的那些事儿的效果。</li>
+<li>命令快捷键<code>pod bin imy</code>，如游戏快捷键，根据配置会在特定目录执行特定命令（如任意终端目录下，执行某个特定目录的pod update --no-repo-update命令），减少其他繁琐操作。支持任意个快捷键。</li>
+</ol>
+<p>cocoapods-imy-bin插件所关联的组件二进制化策略：</p>
+<p>预先将打包成 .a 的组件保存到静态服务器上，并在 install 时，去下载组件对应的二进制版本，以减少组件编译时间，达到加快 App 打包、组件发布等操作的目的。</p>
+<p>关于 插件具体的架构部署实践和更详细的资源，可以参考<br>
+<a href="https://github.com/su350380433/cocoapods-imy-bin-demo">Demo</a></p>
+<h2 id="准备工作">准备工作</h2>
+<ol>
+<li>
+<p>安装插件<br>
+<code>sudo gem install cocoapods-imy-bin</code></p>
+</li>
+<li>
+<p>使用二进制组件<br>
+<a href="%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E8%AF%A6%E7%BB%86%E6%95%99%E7%A8%8B">环境搭建详细教程</a></p>
+</li>
+</ol>
+<p>使用二进制时，本插件需要提供以下资源：</p>
+<ul>
+<li>静态资源服务器（ <a href="https://github.com/su350380433/binary-server">binary-server</a>，附详细使用教程）</li>
+<li>二进制私有源仓库（保存组件二进制版本 podspec）</li>
+</ul>
+<ol start="3">
+<li>初始化插件</li>
+</ol>
+<pre><code>xx:Demo slj$ pod bin init
+
+======  dev 环境 ========
+
+开始设置二进制化初始信息.
+所有的信息都会保存在 /Users/slj/.cocoapods/bin_dev.yml 文件中.
+%w[bin_dev.yml bin_debug_iphoneos.yml bin_release_iphoneos.yml] 
+你可以在对应目录下手动添加编辑该文件. 文件包含的配置信息样式如下：
+
+---
+configuration_env: dev
+code_repo_url: git@github.com:su350380433/example_spec_source.git
+binary_repo_url: git@github.com:su350380433/example_spec_bin_dev.git
+binary_download_url: http://localhost:8080/frameworks/%s/%s.zip
+download_file_type: zip
+
+
+编译环境
+可选值：[ dev / debug_iphoneos / release_iphoneos ]
+旧值：dev
+</code></pre>
+<p>按提示输入所属环境、源码私有源、二进制私有源、二进制下载地址、下载文件类型后，插件就配置完成了。其中 binary_download_url 需要预留组件名称与组件版本占位符，插件内部会依次替换 %s 为相应组件的值。</p>
+<p>cococapod-bin 也支持从 url 下载配置文件，方便对多台机器进行配置：<br>
+<code>pod bin init --bin-url=https://github.com/su350380433/cocoapods-imy-bin-configs/raw/master/bin_dev.yml</code></p>
+<p>配置文件模版内容如下，根据不同团队的需求定制即可：</p>
+<pre><code>---
+configuration_env: dev
+code_repo_url: git@github.com:su350380433/example_spec_source.git
+binary_repo_url: git@github.com:su350380433/example_spec_bin_dev.git
+binary_download_url: http://localhost:8080/frameworks/%s/%s/zip
+download_file_type: zip
+</code></pre>
+<p>配置时，不需要手动添加源码和二进制私有源的 repo，插件在找不到对应 repo 时会主动 clone。</p>
+<p>记得启动 sudo mongod服务，静态资源服务。</p>
+<h2 id="制作二进制组件">制作二进制组件</h2>
+<ol>
+<li>制作命令<br>
+可以直接使用插件的 <code>pod bin auto</code>命令，在插件初始化配置完成后，目录下只要有包含podspec文件，根据podspec文件的version版本号会自动化执行build、组装二进制组件、制作二进制podspec、上传二进制文件、上传二进制podspec到私有源仓库。</li>
+</ol>
+<pre><code>pod bin auto
+</code></pre>
+<p>带上<code>--all-make</code>参数会把当前组件所依赖的组件都自动化制作成二进制组件。</p>
+<pre><code>pod bin local
+</code></pre>
+<p><code>pod bin local </code>是配合其他三方编译产物的命令，需要配置编译产物的目录。</p>
+<p>BinArchive.json是制作二进制的一些配置项，放在项目跟目录下：</p>
+<pre><code>{
+    &quot;//&quot;: &quot;archive-white-pod-list 不制作二进制白名单，&quot;,
+    &quot;archive-white-pod-list&quot; : [
+        &quot;YYTargetDemo&quot;,
+        &quot;YYModel&quot;
+    ],
+    &quot;//&quot;: &quot;ignore-git-list 不制作二进制 所属git白名单，&quot;,
+    &quot;ignore-git-list&quot;: [
+        &quot;git@gitlab.xxx.com:Github-iOS&quot;
+    ],
+     &quot;//&quot;: &quot;ignore-http-list 不制作二进制 所属https白名单，&quot;,
+    &quot;ignore-http-list&quot;: [
+        &quot;https://gitlab.xxx.com/Github-iOS&quot;
+    ],
+    &quot;//&quot;: &quot;xcode_build_path 设置编译缓存完整路径, 默认地址如下&quot;,
+    &quot;xcode_build_path&quot; : &quot;xcode-build/Build/Intermediates.noindex/ArchiveIntermediates/#{target_name}/IntermediateBuildFilesPath/UninstalledProducts/iphoneos/&quot;,
+}
+</code></pre>
+<ol start="2">
+<li>二进制Podspec<br>
+通过pod bin auto和pod bin local二进制Podspec 会自动生成、上传，无需关心。</li>
+<li>查看结果<br>
+二进制存储服务：http://localhost:8080/frameworks/（默认本地8080端口）<br>
+二进制私有源参考：https://github.com/su350380433/example_spec_bin_dev.git（自定义）</li>
+</ol>
+<h2 id="使用二进制">使用二进制</h2>
+<p>在Podfile文件中，加入这两行代码，对已经制作二进制的就会生效，自动转换二进制组件依赖。</p>
+<pre><code>plugin 'cocoapods-imy-bin'
+use_binaries!
+</code></pre>
+<h2 id="扩展功能">扩展功能</h2>
+<ol>
+<li>本地组件配置文件 Podfile_local，目前已支持Podfile下的大部分功能，可以把一些本地配置的语句放到Podfile_local。<br>
+<img src="https://mumuwanglin.github.io/post-images/1617091839226.webp" alt="" loading="lazy"></li>
+</ol>
+<p>场景:</p>
+<ul>
+<li>不希望把本地采用的源码/二进制配置、本地库传到远程仓库。</li>
+<li>避免直接修改Podfile文件，引起更新代码时冲突、或者误提交。</li>
+</ul>
+<p>如Podfile本地库的写法：</p>
+<pre><code>pod YYModel :path =&gt; '../' #提交的时候往往要修改回来才提交，操作繁琐
+</code></pre>
+<p>用法：<br>
+在与Podfile同级目录下，新增一个Podfile_local文件,模板可到这里下载Podfile_local</p>
+<pre><code>#target 'Seeyou' do 不同的项目注意修改下Seeyou的值
+#:path =&gt; '../IMYYQHome',根据实际情况自行修改，与之前在podfile写法一致
+
+
+ plugin 'cocoapods-imy-bin'
+#是否启用二进制插件，想开启把下面注释去掉
+# use_binaries! 
+
+#设置使用【源码】版本的组件。
+#set_use_source_pods ['YYKit','SDWebImaage']
+
+#需要替换Podfile里面的组件才写到这里
+#在这里面的所写的组件库依赖，默认切换为【源码】依赖
+target 'Seeyou' do
+  #本地库引用
+    #pod 'YYModel', :path =&gt; '../YYModel'
+
+  #覆盖、自定义组件
+    #pod 'YYCache', :podspec =&gt; 'http://覆盖、自定义/'
+end
+</code></pre>
+<pre><code>以前的 pod update --no-repo-update 命令加个前缀 `bin` 变成
+</code></pre>
+<pre><code>pod bin update --no-repo-update 
+或者
+pod bin install
+</code></pre>
+<p>支持 pod install/update 命令参数</p>
+<p>并将其加入 .gitignore ，再也不用担心我误提交或者冲突了，Podfile_local 中的配置选项优先级比 Podfile 高，支持和 Podfile 相同的配置语句，同时支持pre_install or post_install。</p>
+<p>如果您不习惯Podfile_local的使用方式，可以把命令写在Podfile里面，pod时不需要加bin，依旧是 pod update/install。</p>
+<ol start="2">
+<li>二进制源码调试<br>
+在项目根目录下，输入命令:</li>
+</ol>
+<pre><code>pod bin code YYModel
+</code></pre>
+<p><code>YYModel</code>为需要源码调试的组件库名称。成功之后像平时一样单步调试，控制台打印变量。让我们同时拥有使用二进制的便利和源码调试的能力。</p>
+<pre><code>$ pod bin code --help                                                                   [11:37:50]
+Usage:
+
+    $ pod bin code [NAME]
+
+      通过将二进制对应源码放置在临时目录中，让二进制出现断点时可以跳到对应的源码，方便调试。 在不删除二进制的情况下为某个组件添加源码调试能力，多个组件名称用空格分隔
+
+Options:
+
+    --all-clean   删除所有已经下载的源码
+    --clean       删除所有指定下载的源码
+    --list        展示所有一级下载的源码以及其大小
+    --source      源码路径，本地路径,会去自动链接本地源码
+</code></pre>
+<ol start="3">
+<li>快捷键命令<br>
+在任意的终端执行命令，都能执行特定目录下特定命令<br>
+使用命令：</li>
+</ol>
+<pre><code>pod bin imy
+// or
+pod bin imy 2    #2 是自定义的快捷键
+
+// 使用场景:
+// 在任意目录下，执行项目A的pod update --no-repo-update命令
+
+// 命令快捷键配置
+ $ pod bin inithk 
+
+开始设置快捷键 pod bin imy.
+所有的信息都会保存在 /Users/ci/.cocoapods/hot_key_1.yml 文件中.
+%w[hot_key.yaml] 
+你可以在对应目录下手动添加编辑该文件. 文件包含的配置信息样式如下：
+
+---
+hot_key_index: '1'
+hot_key_dir: '/User/ci/自定义目录'
+hot_key_cmd: pod bin update --no-repo-update
+
+
+快捷键
+可选值：[ 1 / 2 / 3... ]
+旧值：1 
+</code></pre>
+<h2 id="dsl参数解释">DSL参数解释</h2>
+<p>首先，开发者需要在 <code>Podfile </code>中需要使用 <code>plugin 'cocoapods-imy-bin'</code> 语句引入插件</p>
+<p>顺带可以删除 <code>Podfile</code> 中的 <code>source</code> ，因为插件内部会自动帮你添加两个私有源。</p>
+<p><code>cocoapods-bin</code>插件提供二进制相关的配置语句有 <code>use_binaries!</code>、<code>use_binaries_with_spec_selector!</code> 以及 <code>set_use_source_pods</code>，下面会分别介绍。</p>
+<p>** use_binaries! **<br>
+全部组件使用二进制版本。</p>
+<p>支持传入布尔值控制是否使用二进制版本，比如 DEBUG 包使用二进制版本，正式包使用源码版本，Podfile 关联语句可以这样写：</p>
+<pre><code>use_binaries! (ENV['DEBUG'].nil? || ENV['DEBUG'] == 'true')
+</code></pre>
+<p>** set_use_source_pods **<br>
+设置使用源码版本的组件。<br>
+实际开发中，可能需要查看 YYModel 组件的源码，这时候可以这么设置：</p>
+<pre><code>set_use_source_pods ['YYModel']
+</code></pre>
+<p>如果 CocoaPods 版本为 1.5.3 ，终端会输出以下内容，表示 YYModel 的参照源从二进制私有源切换到了源码私有源：</p>
+<pre><code>Analyzing dependencies
+Fetching podspec for `A` from `../`
+Downloading dependencies
+Using A (0.1.0)
+Installing YYModel 1.0.4.2 (source changed to `git@git.xxxxxx.net:ios/cocoapods-spec.git` from `git@git.xxxxxx.net:ios/cocoapods-spec-binary.git`)
+Generating Pods project
+Integrating client project
+Sending stats
+Pod installation complete! There is 1 dependency from the Podfile and 2 total pods installed.
+</code></pre>
+<p>** use_binaries_with_spec_selector! **<br>
+过滤出需要使用二进制版本组件。<br>
+假如开发者只需要 <code>YYModel</code> 的二进制版本，那么他可以在 <code>Podfile</code> 中添加以下代码：</p>
+<pre><code>use_binaries_with_spec_selector! do |spec|
+  spec.name == 'YYModel'
+end
+</code></pre>
+<p>需要注意的是，如果组件有 subspec ，使用组件名作为判断条件应如下：</p>
+<pre><code>use_binaries_with_spec_selector! do |spec|
+  spec.name.start_with? == '组件名'
+end
+</code></pre>
+<p>如果像上个代码块一样，直接对比组件名，则插件会忽略此组件的所有 <code>subspec</code>，导致资源拉取错误，这种场景下，最好通过 <code>set_use_source_pods</code> 语句配置依赖。<br>
+一个实际应用是，三方组件采用二进制版本，团队编写的组件依旧采用源码版本。如果三方组件都在 <code>cocoapods-repo</code> 组下，就可以使用以下代码过滤出三方组件：</p>
+<pre><code>use_binaries_with_spec_selector! do |spec|
+ git = spec.source &amp;&amp; spec.source['git']
+ git &amp;&amp; git.include?('cocoapods-repo')
+end
+</code></pre>
+<p>切换Dev/Debug_iPhoneos/Release_iPhoneos环境初始化设置</p>
+<pre><code>#dev 初始化插件配置 默认dev环境
+pod bin init --bin-url=https://gitlab.xxx.com/cocoapods-imy-bin-config/raw/master/bin_dev.yml
+
+#Debug_iPhoneos 初始化插件配置
+pod bin init --bin-url=https://gitlab.xxx.com/cocoapods-imy-bin-config/raw/master/bin_debug_iphoneos.yml
+
+
+#release_iPhoneos 初始化插件配置
+pod bin init --bin-url=https://gitlab.xxx.com/cocoapods-imy-bin-config/raw/master/bin_release_iphoneos.yml
+</code></pre>
+<p>使用时在podfile 或者 podfile_local指定设置</p>
+<pre><code>#在podfile 或者 podfile_local 文件下加这句话
+set_configuration_env('debug_iphoneos') 
+</code></pre>
+<p>** 其他设置 **<br>
+插件默认开启多线程下载组件资源，如果要禁用这个功能，Podfile 添加以下代码即可：</p>
+<pre><code>install! 'cocoapods', { install_with_multi_threads: false }
+</code></pre>
+
+            </div>
+          </article>
+        </div>
+        <div class="paper" data-aos="fade-in">
+          
+            <div class="next-post">
+              <div class="next">
+                下一篇
+              </div>
+              <a href="https://mumuwanglin.github.io/post/swift-lu-you-qmrouter/">
+                <h3 class="post-title">
+                  Swift 路由 QMRouter
+                </h3>
+              </a>
+            </div>
+          
+        </div>
+        
+          
+            <div class="paper" data-aos="fade-in">
+              <div id="gitalk-container"></div>
+            </div>
+          
+
+          
+        
+      </div>
+
+      <div class="sm-12 md-4 col sidebar">
+  <div class="paper info-container">
+    <img src="https://mumuwanglin.github.io/images/avatar.png?v=1658910586925" class="no-responsive avatar">
+    <div class="text-muted">每天进步一点点</div>
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      最新文章
+    </div>
+    <div class="row">
+      <ul>
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/qi-mao-ios-qi-dong-shi-jian-you-hua/">七猫 iOS 启动时间优化</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/iOS开源二进制使用插件(使用教程)/">iOS开源二进制使用插件(使用教程)</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-lu-you-qmrouter/">Swift 路由 QMRouter</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swift-uiscrollview-you-ce-kuai-su-hua-kuai/">Swift UIScrollView 右侧快速滑块</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/fang-wen-swift-shu-zu-shi-swift_isuniquelyreferenced_nonnull_native-zhong-de-exc_bad_access/">访问swift数组时，swift_isUniquelyReferenced_nonNull_native中的EXC_BAD_ACCESS</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/liao-yi-liao-bitcode/">聊一聊 Bitcode</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/swiftji-lu-uilabel-de-kuo-zhan-ji-suan-label-de-shi-ji-gao-du-yi-ji-xing-shu/">Swift：记录UILabel的扩展，计算label的实际高度以及行数</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-ru-he-you-ya-de-pan-duan-nei-cun-xie-lou/">iOS 如何优雅的判断内存泄漏</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/wkwebview-shi-yong-gong-lue/">WKWebview使用攻略</a>
+            </li>
+          
+        
+          
+            <li>
+              <a href="https://mumuwanglin.github.io/post/ios-zi-ding-yi-present-dong-hua-swift/">iOS 自定义present动画（Swift）</a>
+            </li>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      </ul>
+    </div>
+  </div>
+  <div class="paper">
+    <div class="sidebar-title">
+      标签列表
+    </div>
+    <div class="row">
+      
+        <a href="https://mumuwanglin.github.io/tag/igh_dS0bb/" class="badge ">
+          iOS
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/dPSLjLDmT/" class="badge ">
+          Swift
+        </a>
+      
+        <a href="https://mumuwanglin.github.io/tag/6dEErRCiC/" class="badge warning">
+          Gridea
+        </a>
+      
+    </div>
+  </div>
+  <div class="paper">
+    Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://mumuwanglin.github.io/atom.xml" target="_blank">RSS</a>
+  </div>
+</div>
+
+
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+
+<script type="application/javascript">
+
+AOS.init();
+
+hljs.initHighlightingOnLoad()
+
+</script>
+
+
+
+  
+    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+    <script>
+
+      var gitalk = new Gitalk({
+        clientID: '5349e8261382c7ffc4fa',
+        clientSecret: '3baf5e7c42196b8cc552884e1e029b5b894f7a06',
+        repo: 'mumuwanglin.github.io',
+        owner: 'mumuwanglin',
+        admin: ['mumuwanglin'],
+        id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+        distractionFreeMode: false  // Facebook-like distraction free mode
+      })
+
+      gitalk.render('gitalk-container')
+
+    </script>
+  
+
+  
+
+
+
+
+  </body>
+</html>
